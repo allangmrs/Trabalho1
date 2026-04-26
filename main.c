@@ -14,6 +14,12 @@ struct request {
     int chegada;
 };
 
+typedef struct resultados
+{
+    met *metricas;
+    double tempo;
+} resultados;
+
 r *copiaVetor(r *orig, int tam) {
     r *novo = malloc(sizeof(r) * tam);
     memcpy(novo, orig, sizeof(r) * tam);
@@ -21,14 +27,26 @@ r *copiaVetor(r *orig, int tam) {
 }
 
 double calculaTempo(struct timespec inicio, struct timespec fim) {
-    return (fim.tv_sec - inicio.tv_sec) +
-           (fim.tv_nsec - inicio.tv_nsec) / 1e9;
+    return ((fim.tv_sec - inicio.tv_sec) * 1000.0) +
+           ((fim.tv_nsec - inicio.tv_nsec) / 1e6);
 }
 
-double rodaAlgoritmo(int alg, r *base, int tam) {
+int verificaEstabilidade(r *vet, int n) {
+    for (int i = 1; i < n; i++) {
+        if (vet[i].chegada == vet[i-1].chegada) {
+            if (vet[i].user_id < vet[i-1].user_id) {
+                return 0; // instável
+            }
+        }
+    }
+    return 1; // estável
+}
+
+resultados rodaAlgoritmo(int alg, r *base, int tam) {
     r *vet = copiaVetor(base, tam);
     met *m;
     struct timespec inicio, fim;
+    resultados result;
 
     clock_gettime(CLOCK_MONOTONIC, &inicio);
 
@@ -57,23 +75,28 @@ double rodaAlgoritmo(int alg, r *base, int tam) {
             m = heapSort(vet, tam);
             break;
         default:
-            return 0;
+            m = NULL;
+            break;
     }
 
     clock_gettime(CLOCK_MONOTONIC, &fim);
 
-    double tempo = calculaTempo(inicio, fim);
+    result.metricas = m;
+    result.tempo = calculaTempo(inicio, fim);
 
     liberaMetricas(m);
     free(vet);
 
-    return tempo;
+    return result;
 }
 
-double mediaAlg(int alg, int tam, int tipoDataset) {
+resultados mediaAlg(int alg, int tam, int tipoDataset) {
     double soma = 0;
     double repeticoes = 1;
+    resultados result;
 
+    // Para os vetores ordenados de forma aleatória ou quase ordenado,
+    // executamos 30 repetições e fazemos uma média do tempo
     if (tipoDataset == 0 || tipoDataset == 3)
         repeticoes = 30;
 
@@ -90,7 +113,9 @@ double mediaAlg(int alg, int tam, int tipoDataset) {
         else
             vet = geraQuaseOrdenados(tam, seed, 10);
 
-        soma += rodaAlgoritmo(alg, vet, tam);
+        resultados result = rodaAlgoritmo(alg, vet, tam);
+        soma += result.tempo;
+
         liberaVetor(vet);
     }
 
@@ -98,7 +123,7 @@ double mediaAlg(int alg, int tam, int tipoDataset) {
 }
 
 int main() {
-    int tamanhos[] = {1000, 10000, 100000, 1000000};
+    int tamanhos[] = {1000, 10000, 100000, 1000000, 10000000};
     int numTam = 4;
 
     char *nomesAlg[] = {
@@ -108,39 +133,54 @@ int main() {
 
     srand(time(NULL));
 
-    FILE *csv = fopen("tabelas.csv", "w");
+    FILE *csv_tempo = fopen("tabelas.csv", "w");
+    FILE *csv_movimentacoes = fopen("tabelas.csv", "w");
+    FILE *csv_comparacoes = fopen("tabelas.csv", "w");
 
-    if (!csv) {
+    if (!csv_tempo || !csv_movimentacoes || ! csv_comparacoes) {
         printf("Erro ao criar csv\n");
         return 1;
     }
 
     for (int alg = 0; alg < 7; alg++) {
 
-        fprintf(csv, "Algoritmo: %s\n", nomesAlg[alg]);
-        fprintf(csv, "Teste,Tamanho,Aleatorio,Crescente,Decrescente,Quase\n");
+        fprintf(csv_tempo, "Algoritmo: %s\n", nomesAlg[alg]);
+        fprintf(csv_tempo, "Teste,Tamanho,Aleatorio(ms),Crescente(ms),Decrescente(ms),Quase(ms)\n");
 
         for (int i = 0; i < numTam; i++) {
             int tam = tamanhos[i];
 
             // Pulei os mais lentos para 1 milhão e o quicksort está dando stack overflow
+            // todo: talvez temos que implementar os algoritmos novamente e comparar com os já implementados dela
+            // todo limitar os algoritmos n²
             if ((alg <= 2 && tam > 100000) || alg == 4)
                 continue;
 
-            double aleatorio = mediaAlg(alg, tam, 0);
-            double crescente = mediaAlg(alg, tam, 1);
-            double decrescente = mediaAlg(alg, tam, 2);
-            double quase = mediaAlg(alg, tam, 3);
+            resultados aleatorio = mediaAlg(alg, tam, 0);
+            resultados crescente = mediaAlg(alg, tam, 1);
+            resultados decrescente = mediaAlg(alg, tam, 2);
+            resultados quase = mediaAlg(alg, tam, 3);
 
-            fprintf(csv, "%d,%d,%.6f,%.6f,%.6f,%.6f\n",
+            // csv de tempo
+            fprintf(csv_tempo, "%d,%d,%.6f,%.6f,%.6f,%.6f\n",
                     i + 1, tam,
-                    aleatorio, crescente, decrescente, quase);
+                    aleatorio.tempo, crescente.tempo, decrescente.tempo, quase.tempo);
+
+            // todo: csv de movimentações
+
+            // todo: csv de comparações
+
+            // todo: Verificando estabilidade
         }
 
-        fprintf(csv, "\n\n");
+        fprintf(csv_tempo, "\n");
+        fprintf(csv_movimentacoes, "\n");
+        fprintf(csv_comparacoes, "\n");
     }
 
-    fclose(csv);
+    fclose(csv_tempo);
+    fclose(csv_movimentacoes);
+    fclose(csv_comparacoes);
 
     printf("Arquivo tabelas.csv gerado\n");
     return 0;
