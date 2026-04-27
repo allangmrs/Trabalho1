@@ -4,6 +4,7 @@
 #include <time.h>
 #include "ordenacao.h"
 
+#pragma region Structs
 struct metricas {
     unsigned long long comparacoes;
     unsigned long long movimentacoes;
@@ -20,7 +21,9 @@ typedef struct resultados
     met *metricas;
     r *vetorOrdenado;
 } resultados;
+#pragma endregion
 
+#pragma region Funcoes auxiliares
 r *copiaVetor(r *orig, int tam) {
     r *novo = malloc(sizeof(r) * tam);
     memcpy(novo, orig, sizeof(r) * tam);
@@ -31,7 +34,7 @@ double calculaTempo(struct timespec inicio, struct timespec fim) {
     return ((fim.tv_sec - inicio.tv_sec) * 1000.0) +
            ((fim.tv_nsec - inicio.tv_nsec) / 1e6);
 }
-
+#pragma endregion
 int verificaEstabilidade(r *vet, int n) {
     for (int i = 1; i < n; i++) {
         if (vet[i].user_id == vet[i-1].user_id) {
@@ -43,7 +46,7 @@ int verificaEstabilidade(r *vet, int n) {
     return 1; // estável
 }
 
-int particiona(r *vet, int inicio, int fim, met *m) {
+int particionaGrupo(r *vet, int inicio, int fim, met *m) {
     int idx_rand = inicio + rand() % (fim - inicio + 1);
 
     r tmp = vet[inicio];
@@ -76,10 +79,9 @@ int particiona(r *vet, int inicio, int fim, met *m) {
     return pos;
 }
 
-
 void quickSortGrupo(r *vet, int inicio, int fim, met *m) {
     while (inicio < fim) {
-        int pivo = particiona(vet, inicio, fim, m);
+        int pivo = particionaGrupo(vet, inicio, fim, m);
 
         // sempre recursiona no menor lado
         if (pivo - inicio < fim - pivo) {
@@ -90,6 +92,26 @@ void quickSortGrupo(r *vet, int inicio, int fim, met *m) {
             fim = pivo - 1;
         }
     }
+}
+
+met *rodaBozo(r *vet, int *qtd) {
+    int tamanhosBozo[] = {4, 8, 10, 12};
+    int n = 4;
+
+    met *resultados = malloc(sizeof(met) * n);
+
+    for (int i = 0; i < n; i++) {
+        int tam = tamanhosBozo[i];
+
+        met *m = bozoSort(vet, tam);
+
+        resultados[i] = *m; // copia struct
+        liberaMetricas(m);
+        liberaVetor(vet);
+    }
+
+    *qtd = n;
+    return resultados;
 }
 
 resultados rodaAlgoritmo(int alg, r *base, int tam, int retornaVetor) {
@@ -127,6 +149,10 @@ resultados rodaAlgoritmo(int alg, r *base, int tam, int retornaVetor) {
         case 7:
             m = alocaMetricas();
             quickSortGrupo(vet, 0, tam-1, m);
+            break;
+        case 8:
+            m = alocaMetricas();
+            rodaBozo();
             break;
         default:
             m = NULL;
@@ -220,6 +246,7 @@ void menuOpcoes(int *algEscolhido, int *modo, int *usarTodosDatasets)
         printf("5 - ShellSort\n");
         printf("6 - HeapSort\n");
         printf("7 - QuickSortGrupo\n");
+        printf("8 - BozoSortLimitado\n");
         printf("Opcao: ");
         scanf("%d", algEscolhido);
     }
@@ -233,7 +260,7 @@ int main() {
 
     char *nomesAlg[] = {
         "Bolha", "Selecao", "Insercao",
-        "MergeSort", "QuickSort", "ShellSort", "HeapSort", "QuickSortGrupo"
+        "MergeSort", "QuickSort", "ShellSort", "HeapSort", "QuickSortGrupo", "BozoSortLimitado"
     };
 
     srand(time(NULL));
@@ -253,7 +280,7 @@ int main() {
         printf("Erro ao criar csv\n");
         return 1;
     }
-    for (int alg = 0; alg < 8; alg++) {
+    for (int alg = 0; alg < 9; alg++) {
         if (modo == 2 && alg != algEscolhido)
             continue;
 
@@ -305,7 +332,8 @@ int main() {
         fprintf(csv_movimentacoes, "\n");
         fprintf(csv_comparacoes, "\n");
     }
-    // Verificando estabilidade
+
+#pragma region Verificando estabilidade
     r vet[] = {
         {1, 1},
         {2, 1},
@@ -317,7 +345,7 @@ int main() {
     };
     r *teste;
     int tamTeste = 7;
-    for (int j = 0; j < 8; j++)
+    for (int j = 0; j < 9; j++)
     {
         teste = rodaAlgoritmo(j, vet, tamTeste, 1).vetorOrdenado;
         int estavel = verificaEstabilidade(teste, tamTeste);
@@ -331,6 +359,8 @@ int main() {
         printf("\n");
         free(teste);
     }
+#pragma endregion
+
     fclose(csv_tempo);
     fclose(csv_movimentacoes);
     fclose(csv_comparacoes);
@@ -339,37 +369,3 @@ int main() {
     printf("Arquivos gerados\n");
     return 0;
 }
-
-// met *bozoSort(r *vet, int tam) {
-//     met *m = alocaMetricas();
-//     if (!m) return NULL;
-//
-//     int ordenado = 0;
-//
-//     while (!ordenado) {
-//         ordenado = 1;
-//
-//         // verifica se está ordenado
-//         for (int i = 1; i < tam; i++) {
-//             m->comparacoes++;
-//             if (vet[i].chegada < vet[i - 1].chegada) {
-//                 ordenado = 0;
-//                 break;
-//             }
-//         }
-//
-//         if (!ordenado) {
-//             int i = rand() % tam;
-//             int j = rand() % tam;
-//
-//             // troca
-//             r temp = vet[i];
-//             vet[i] = vet[j];
-//             vet[j] = temp;
-//
-//             m->movimentacoes += 3; // swap padrão
-//         }
-//     }
-//
-//     return m;
-// }
