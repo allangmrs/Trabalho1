@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include "ordenacao.h"
 
 #pragma region Structs
@@ -30,10 +33,13 @@ r *copiaVetor(r *orig, int tam) {
     return novo;
 }
 
-double calculaTempo(struct timespec inicio, struct timespec fim) {
-    return ((fim.tv_sec - inicio.tv_sec) * 1000.0) +
-           ((fim.tv_nsec - inicio.tv_nsec) / 1e6);
+double calculaTempo(LARGE_INTEGER inicio, LARGE_INTEGER fim)
+{
+    LARGE_INTEGER freq;
+    QueryPerformanceFrequency(&freq);
+    return (double)(fim.QuadPart - inicio.QuadPart) * 1000.0 / freq.QuadPart;
 }
+
 #pragma endregion
 int verificaEstabilidade(r *vet, int n) {
     for (int i = 1; i < n; i++) {
@@ -94,33 +100,37 @@ void quickSortGrupo(r *vet, int inicio, int fim, met *m) {
     }
 }
 
-met *rodaBozo(r *vet, int *qtd) {
-    int tamanhosBozo[] = {4, 8, 10, 12};
-    int n = 4;
+resultados rodaBozo(r *vet, int tam)
+{
+    int limite_ms = 30000;
+    resultados result = {0, NULL, NULL};
 
-    met *resultados = malloc(sizeof(met) * n);
+    LARGE_INTEGER inicio, fim;
+    QueryPerformanceCounter(&inicio);
 
-    for (int i = 0; i < n; i++) {
-        int tam = tamanhosBozo[i];
+    met *m = bozoSort(vet, tam);
 
-        met *m = bozoSort(vet, tam);
+    QueryPerformanceCounter(&fim);
+    double tempo = calculaTempo(inicio, fim);
 
-        resultados[i] = *m; // copia struct
+    if (tempo > limite_ms)
+    {
         liberaMetricas(m);
-        liberaVetor(vet);
+        return result;
     }
 
-    *qtd = n;
-    return resultados;
+    result.tempo = tempo;
+    result.metricas = m;
+    return result;
 }
 
 resultados rodaAlgoritmo(int alg, r *base, int tam, int retornaVetor) {
     r *vet = copiaVetor(base, tam);
     met *m;
-    struct timespec inicio, fim;
+    LARGE_INTEGER inicio, fim;
     resultados result;
 
-    clock_gettime(CLOCK_MONOTONIC, &inicio);
+    QueryPerformanceCounter(&inicio);
 
     switch (alg) {
         case 0:
@@ -151,15 +161,14 @@ resultados rodaAlgoritmo(int alg, r *base, int tam, int retornaVetor) {
             quickSortGrupo(vet, 0, tam-1, m);
             break;
         case 8:
-            m = alocaMetricas();
-            // rodaBozo();
+            m = rodaBozo(vet, tam).metricas;
             break;
         default:
             m = NULL;
             break;
     }
 
-    clock_gettime(CLOCK_MONOTONIC, &fim);
+    QueryPerformanceCounter(&fim);
 
     result.metricas = m;
     result.tempo = calculaTempo(inicio, fim);
@@ -178,14 +187,15 @@ resultados rodaAlgoritmo(int alg, r *base, int tam, int retornaVetor) {
     return result;
 }
 
-resultados mediaAlg(int alg, int tam, int tipoDataset) {
+resultados mediaAlg(int alg, int tam, int tipoDataset)
+{
     double soma = 0;
     double repeticoes = 1;
-    resultados result = { 0, NULL, NULL};
+    resultados result = {0, NULL, NULL};
 
-    met *metricas;
-    metricas = alocaMetricas();
-    if (!metricas)  return result;
+    met *metricas = alocaMetricas();
+    if (!metricas)
+        return result;
 
     // Para os vetores ordenados de forma aleatória ou quase ordenado,
     // executamos 30 repetições e fazemos uma média do tempo
@@ -196,12 +206,56 @@ resultados mediaAlg(int alg, int tam, int tipoDataset) {
     if (tipoDataset == 0 || tipoDataset == 3)
         repeticoes = 30;
 
-    for (int i = 0; i < repeticoes; i++) {
+    // BozoSort: tamanhos fixos pequenos, 5 repetições, timeout de 30s
+    if (alg == 8)
+    {
+        int tamanhosBozo[] = {4, 8, 10, 12};
+        int valido = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            if (tamanhosBozo[i] == tam)
+            {
+                valido = 1;
+                break;
+            }
+        }
+        if (!valido)
+        {
+            liberaMetricas(metricas);
+            return result;
+        }
+        repeticoes = 5;
+        for (int rep = 0; rep < repeticoes; rep++)
+        {
+            r *vet = geraAleatorios(tam, rand());
+            resultados exec = rodaBozo(vet, tam);
+            liberaVetor(vet);
+            if (!exec.metricas)
+                continue;
+            metricas->comparacoes += exec.metricas->comparacoes;
+            metricas->movimentacoes += exec.metricas->movimentacoes;
+            soma += exec.tempo;
+            liberaMetricas(exec.metricas);
+        }
+
+        metricas->comparacoes /= repeticoes;
+        metricas->movimentacoes /= repeticoes;
+        result.tempo = soma / repeticoes;
+        result.metricas = metricas;
+        return result;
+    }
+
+    if (alg <= 2 && tipoDataset != 2)
+    {
+        liberaMetricas(metricas);
+        return result;
+    }
+
+    for (int i = 0; i < repeticoes; i++)
+    {
         int seed = rand();
         r *vet;
 
-        //if ((alg == 4 || alg == 7) && (tipoDataset == 0 || tipoDataset == 2))
-          //  continue;
         if (alg <= 2 && tipoDataset != 2)
             continue;
 
@@ -222,11 +276,9 @@ resultados mediaAlg(int alg, int tam, int tipoDataset) {
         liberaMetricas(exec.metricas);
         liberaVetor(vet);
     }
-    // O compilador me diz esse erro
-    // Clang-Tidy: Narrowing conversion from 'double' to 'unsigned long long'
+
     metricas->comparacoes /= repeticoes;
     metricas->movimentacoes /= repeticoes;
-
     result.tempo = soma / repeticoes;
     result.metricas = metricas;
     return result;
@@ -285,6 +337,22 @@ int main() {
     for (int alg = 0; alg < 9; alg++) {
         if (modo == 2 && alg != algEscolhido)
             continue;
+        
+        //tamanhos do bozo
+        int *tamanhos_uso;
+        int numTam_uso;
+        int tamanhosBozo[] = {4, 8, 10, 12};
+
+        if (alg == 8)
+        {
+            tamanhos_uso = tamanhosBozo;
+            numTam_uso = 4;
+        }
+        else
+        {
+            tamanhos_uso = tamanhos;
+            numTam_uso = numTam;
+        }
 
 #pragma region nometabelas
         fprintf(csv_tempo, "Algoritmo: %s\n", nomesAlg[alg]);
@@ -297,7 +365,7 @@ int main() {
 #pragma endregion
 
         for (int i = 0; i < numTam; i++) {
-            int tam = tamanhos[i];
+            int tam = tamanhos_uso[i];
 
             // Pulei os mais lentos para 1 milhão e o quicksort está dando stack overflow
             if ((alg <= 2 && tam > 100000))
