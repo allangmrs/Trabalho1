@@ -152,7 +152,7 @@ resultados rodaAlgoritmo(int alg, r *base, int tam, int retornaVetor) {
             break;
         case 8:
             m = alocaMetricas();
-            rodaBozo();
+            // rodaBozo();
             break;
         default:
             m = NULL;
@@ -189,6 +189,10 @@ resultados mediaAlg(int alg, int tam, int tipoDataset) {
 
     // Para os vetores ordenados de forma aleatória ou quase ordenado,
     // executamos 30 repetições e fazemos uma média do tempo
+    // 0 = Aleatório
+    // 1 = Crescente
+    // 2 = Decrescente
+    // 3 = Quase ordenado
     if (tipoDataset == 0 || tipoDataset == 3)
         repeticoes = 30;
 
@@ -228,7 +232,7 @@ resultados mediaAlg(int alg, int tam, int tipoDataset) {
     return result;
 }
 
-void menuOpcoes(int *algEscolhido, int *modo, int *usarTodosDatasets)
+void menuOpcoes(int *algEscolhido, int *modo)
 {
     printf("===== CONFIGURACAO =====\n");
     printf("1 - Rodar TODOS algoritmos\n");
@@ -250,7 +254,6 @@ void menuOpcoes(int *algEscolhido, int *modo, int *usarTodosDatasets)
         printf("Opcao: ");
         scanf("%d", algEscolhido);
     }
-
 }
 
 int main() {
@@ -267,9 +270,8 @@ int main() {
 
     int modo = 1;
     int algEscolhido = -1;
-    int usarTodosDatasets = 1;
 
-    menuOpcoes(&algEscolhido, &modo, &usarTodosDatasets);
+    menuOpcoes(&algEscolhido, &modo);
 
     FILE *csv_tempo = fopen("tabela_tempo.csv", "w");
     FILE *csv_movimentacoes = fopen("tabela_movimentacoes.csv", "w");
