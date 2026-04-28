@@ -124,6 +124,37 @@ resultados rodaBozo(r *vet, int tam)
     return result;
 }
 
+void testaLimiteBozoSort()
+{
+    int limite_ms = 300000; // 5 minutos
+    printf("Teste de Limite de 5 minutos maximos do bozo\n");
+
+    for (int tam = 4; tam <= 20; tam++)
+    {
+        r *vet = geraAleatorios(tam, rand());
+
+        LARGE_INTEGER inicio, fim;
+        QueryPerformanceCounter(&inicio);
+
+        met *m = bozoSort(vet, tam);
+
+        QueryPerformanceCounter(&fim);
+        double tempo = calculaTempo(inicio, fim);
+
+        liberaVetor(vet);
+        liberaMetricas(m);
+
+        printf("Tamanho %d: %.2f ms\n", tam, tempo);
+
+        if (tempo > limite_ms)
+        {
+            printf("Limite atingido! Maior tamanho viavel: %d elementos\n", tam - 1);
+            return;
+        }
+    }
+    printf("Todos os tamanhos testados dentro do limite!\n");
+}
+
 resultados rodaAlgoritmo(int alg, r *base, int tam, int retornaVetor) {
     r *vet = copiaVetor(base, tam);
     met *m;
@@ -297,6 +328,7 @@ void menuOpcoes(int *algEscolhido, int *modo, int *usarTodosDatasets)
         printf("6 - HeapSort\n");
         printf("7 - QuickSortGrupo\n");
         printf("8 - BozoSortLimitado\n");
+        printf("9 - TestaLimiteBozo\n");
         printf("Opcao: ");
         scanf("%d", algEscolhido);
     }
@@ -310,8 +342,7 @@ int main() {
 
     char *nomesAlg[] = {
         "Bolha", "Selecao", "Insercao",
-        "MergeSort", "QuickSort", "ShellSort", "HeapSort", "QuickSortGrupo", "BozoSortLimitado"
-    };
+        "MergeSort", "QuickSort", "ShellSort", "HeapSort", "QuickSortGrupo", "BozoSortLimitado", "testaLimiteBozoSort"};
 
     srand(time(NULL));
 
@@ -330,6 +361,7 @@ int main() {
         printf("Erro ao criar csv\n");
         return 1;
     }
+
     for (int alg = 0; alg < 9; alg++) {
         if (modo == 2 && alg != algEscolhido)
             continue;
@@ -398,6 +430,9 @@ int main() {
         fprintf(csv_movimentacoes, "\n");
         fprintf(csv_comparacoes, "\n");
     }
+
+    if (modo == 2 && algEscolhido == 9)
+        testaLimiteBozoSort();
 
 #pragma region Verificando estabilidade
     r vet[] = {
