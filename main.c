@@ -27,12 +27,26 @@ typedef struct resultados
 #pragma endregion
 
 #pragma region Funcoes auxiliares
+/**
+ * Cria uma cópia dinâmica de um vetor de requests.
+ * @param orig Vetor original
+ * @param tam Quantidade de elementos
+ * @return Ponteiro para o novo vetor copiado */
 r *copiaVetor(r *orig, int tam) {
     r *novo = malloc(sizeof(r) * tam);
     memcpy(novo, orig, sizeof(r) * tam);
     return novo;
 }
 
+/**
+ * Calcula o tempo decorrido entre dois instantes.
+ *
+ * O valor retornado é dado em milissegundos.
+ *
+ * @param inicio Instante inicial
+ * @param fim Instante final
+ * @return Tempo decorrido em milissegundos
+ */
 double calculaTempo(LARGE_INTEGER inicio, LARGE_INTEGER fim)
 {
     LARGE_INTEGER freq;
@@ -41,6 +55,16 @@ double calculaTempo(LARGE_INTEGER inicio, LARGE_INTEGER fim)
 }
 
 #pragma endregion
+/**
+ * Verifica se a ordenação realizada foi estável.
+ *
+ * Um algoritmo estável mantém a ordem relativa
+ * dos elementos com mesma chave de ordenação.
+ *
+ * @param vet Vetor ordenado
+ * @param n Quantidade de elementos
+ * @return 1 caso estável, 0 caso instável
+ */
 int verificaEstabilidade(r *vet, int n) {
     for (int i = 1; i < n; i++) {
         if (vet[i].user_id == vet[i-1].user_id) {
@@ -52,6 +76,18 @@ int verificaEstabilidade(r *vet, int n) {
     return 1; // estável
 }
 
+/**
+ * Realiza a partição do QuickSort utilizando pivô aleatório.
+ *
+ * Além da partição, também contabiliza comparações
+ * e movimentações realizadas.
+ *
+ * @param vet Vetor analisado
+ * @param inicio Índice inicial
+ * @param fim Índice final
+ * @param m Estrutura de métricas
+ * @return Posição final do pivô
+ */
 int particionaGrupo(r *vet, int inicio, int fim, met *m) {
     int idx_rand = inicio + rand() % (fim - inicio + 1);
 
@@ -85,6 +121,18 @@ int particionaGrupo(r *vet, int inicio, int fim, met *m) {
     return pos;
 }
 
+/**
+ * Implementação otimizada do QuickSort.
+ *
+ * A função utiliza pivô aleatório e recursão
+ * apenas no menor subvetor para reduzir a
+ * profundidade da pilha e evitar stack overflow.
+ *
+ * @param vet Vetor a ser ordenado
+ * @param inicio Índice inicial
+ * @param fim Índice final
+ * @param m Estrutura de métricas
+ */
 void quickSortGrupo(r *vet, int inicio, int fim, met *m) {
     while (inicio < fim) {
         int pivo = particionaGrupo(vet, inicio, fim, m);
@@ -100,6 +148,17 @@ void quickSortGrupo(r *vet, int inicio, int fim, met *m) {
     }
 }
 
+/**
+ * Executa o BozoSort com limitação de tempo.
+ *
+ * Caso o algoritmo ultrapasse o limite definido,
+ * a execução é interrompida para evitar tempos
+ * excessivos de processamento.
+ *
+ * @param vet Vetor a ser ordenado
+ * @param tam Quantidade de elementos
+ * @return Estrutura contendo tempo e métricas
+ */
 resultados rodaBozo(r *vet, int tam)
 {
     int limite_ms = 30000;
@@ -155,6 +214,15 @@ void testaLimiteBozoSort()
     printf("Todos os tamanhos testados dentro do limite!\n");
 }
 
+/**
+ * Executa um algoritmo de ordenação e mede seu desempenho.
+ *
+ * @param alg Índice do algoritmo escolhido
+ * @param base Vetor original
+ * @param tam Tamanho do vetor
+ * @param retornaVetor Define se o vetor ordenado será retornado
+ * @return Estrutura contendo tempo, métricas e vetor ordenado
+ */
 resultados rodaAlgoritmo(int alg, r *base, int tam, int retornaVetor) {
     r *vet = copiaVetor(base, tam);
     met *m;
@@ -218,6 +286,22 @@ resultados rodaAlgoritmo(int alg, r *base, int tam, int retornaVetor) {
     return result;
 }
 
+/**
+ * Executa múltiplas repetições de um algoritmo
+ * e calcula médias de tempo e métricas.
+ *
+ * Os testes são realizados utilizando diferentes
+ * tipos de datasets:
+ * - aleatório
+ * - crescente
+ * - decrescente
+ * - quase ordenado
+ *
+ * @param alg Índice do algoritmo
+ * @param tam Quantidade de elementos
+ * @param tipoDataset Tipo do dataset utilizado
+ * @return Estrutura contendo médias coletadas
+ */
 resultados mediaAlg(int alg, int tam, int tipoDataset)
 {
     double soma = 0;
@@ -228,6 +312,8 @@ resultados mediaAlg(int alg, int tam, int tipoDataset)
     if (!metricas)
         return result;
 
+    // Aleatório = 0
+    // Quase ordenado = 3
     if (tipoDataset == 0 || tipoDataset == 3)
         repeticoes = 30;
 
@@ -281,9 +367,6 @@ resultados mediaAlg(int alg, int tam, int tipoDataset)
         int seed = rand();
         r *vet;
 
-        if (alg <= 2 && tipoDataset != 2)
-            continue;
-
         if (tipoDataset == 0)
             vet = geraAleatorios(tam, seed);
         else if (tipoDataset == 1)
@@ -309,6 +392,15 @@ resultados mediaAlg(int alg, int tam, int tipoDataset)
     return result;
 }
 
+/**
+ * Exibe o menu de configuração da aplicação.
+ *
+ * Permite executar todos os algoritmos
+ * ou selecionar apenas um algoritmo específico.
+ *
+ * @param algEscolhido Ponteiro para algoritmo escolhido
+ * @param modo Ponteiro para modo de execução
+ */
 void menuOpcoes(int *algEscolhido, int *modo, int *usarTodosDatasets)
 {
     printf("===== CONFIGURACAO =====\n");
@@ -396,7 +488,7 @@ int main() {
             int tam = tamanhos_uso[i];
 
             // Pulei os mais lentos para 1 milhão e o quicksort está dando stack overflow
-            if ((alg <= 2 && tam > 100000))
+            if ((alg <= 2 || alg == 4)&& tam > 100000)
                 continue;
 
             resultados aleatorio = mediaAlg(alg, tam, 0);
