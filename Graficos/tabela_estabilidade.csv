@@ -1,0 +1,16 @@
+Algoritmo: Bolha
+Estável: 1
+Algoritmo: Selecao
+Estável: 0
+Algoritmo: Insercao
+Estável: 1
+Algoritmo: MergeSort
+Estável: 1
+Algoritmo: QuickSort
+Estável: 0
+Algoritmo: ShellSort
+Estável: 0
+Algoritmo: HeapSort
+Estável: 0
+Algoritmo: BozoSort
+Estável: 0
