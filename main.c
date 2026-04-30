@@ -484,11 +484,11 @@ int main() {
         fprintf(csv_comparacoes, "Teste,Tamanho,Aleatorio,Crescente,Decrescente,Quase\n");
 #pragma endregion
 
-        for (int i = 0; i < numTam; i++) {
+        for (int i = 0; i < numTam_uso; i++) {
             int tam = tamanhos_uso[i];
 
             // Pulei os mais lentos para 1 milhão e o quicksort está dando stack overflow
-            if ((alg <= 2 || alg == 4)&& tam > 100000)
+            if ((alg <= 2 || alg == 4) && tam > 100000)
                 continue;
 
             resultados aleatorio = mediaAlg(alg, tam, 0);
